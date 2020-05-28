@@ -8,13 +8,9 @@ from libs.mailgun import MailGunException
 from models.confirmation import ConfirmationModel
 from models.user import UserModel
 from schemas.confirmation import ConfirmationSchema
+from libs.strings import gettext
 
-NOT_FOUND = "Confirmation reference not found."
-EXPIRED = "The link has expired."
-ALREADY_CONFIRMED = "Registration has already been confirmed."
-USER_NOT_FOUND = "User not found"
-RESEND_SUCCESSFUL = "E-mail confirmation successfully re-sent."
-RESEND_FAIL = "Internal server error. failed to resend confirmation email"
+
 confirmation_schema = ConfirmationSchema()
 
 
@@ -27,13 +23,13 @@ class Confirmation(Resource):
         confirmation = ConfirmationModel.find_by_id(confirmation_id)
 
         if not confirmation:
-            return {"message": NOT_FOUND}, 404
+            return {"message": gettext("confirmation_not_found")}, 404
 
         if confirmation.expired:
-            return {"message": EXPIRED}, 400
+            return {"message": gettext("confirmation_link_expired")}, 400
 
         if confirmation.confirmed:
-            return {"message": ALREADY_CONFIRMED}, 400
+            return {"message": gettext("confirmation_already_confirmed")}, 400
 
         confirmation.confirmed = True
         confirmation.save_to_db()
@@ -55,7 +51,7 @@ class ConfirmationByUser(Resource):
         user = UserModel.find_by_id(user_id)
 
         if not user:
-            return {"message": USER_NOT_FOUND}, 404
+            return {"message": gettext("user_not_found")}, 404
 
         return (
             {
@@ -75,20 +71,20 @@ class ConfirmationByUser(Resource):
         """
         user = UserModel.find_by_id(user_id)
         if not user:
-            return {"message": USER_NOT_FOUND}, 404
+            return {"message": gettext("user_not_found")}, 404
 
         try:
             confirmation = user.most_recent_confirmation
             if confirmation:
                 if confirmation.confirmed:
-                    return {"message": ALREADY_CONFIRMED}, 400
+                    return {"message": gettext("confirmation_already_confirmed")}, 400
                 confirmation.force_to_expire()
             new_confirmation = ConfirmationModel(user_id)
             new_confirmation.save_to_db()
             user.send_confirmation_email()
-            return {"message": RESEND_SUCCESSFUL}, 201
+            return {"message": gettext("confirmation_resend_successful")}, 201
         except MailGunException as e:
             return {"message": str(e)}, 500
         except:
             traceback.print_exc()
-            return {"message": RESEND_FAIL}, 500
+            return {"message": gettext("confirmation_resend_fail")}, 500
